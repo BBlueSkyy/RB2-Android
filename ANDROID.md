@@ -166,8 +166,11 @@ other phones:
 - **Fixes for other phones** (Exynos, MediaTek, Tensor, older Snapdragon...) are welcome as pull
   requests. Keep changes behind the existing launcher options / cvars where possible so other devices
   are not affected, and say which device you tested on.
-- **Touch controls will not be added to this repository.** These are controller games; a fork is the
-  place for them.
+- **Touch controls** in this fork use a GameHub-inspired translucent Xbox-style layout:
+  dual sticks, D-pad, ABXY, triggers, bumpers, L3/R3, Back and Start. Swipe inward from
+  either screen edge to open the in-game menu, where you can change touch controls
+  **On/Off**, size (75/100/125%) and opacity (40/60/75/100%). They support simultaneous
+  touches and hide automatically when a physical controller is connected.
 - **No game data** (ISOs, `default.xex`, textures, extracted files) in issues, pull requests or forks
   linked from here. Such issues are closed and such pull requests are not merged.
 
