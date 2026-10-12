@@ -11,7 +11,6 @@ import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.FrameLayout;
 
 import java.util.Arrays;
 
@@ -160,7 +159,7 @@ public class GameActivity extends SDLActivity {
                     // SDL_main may not have started loading libmain.so yet.
                 }
             });
-            mLayout.addView(touchControls, new FrameLayout.LayoutParams(
+            mLayout.addView(touchControls, new ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
             inputManager = (InputManager) getSystemService(INPUT_SERVICE);
             if (inputManager != null) {
