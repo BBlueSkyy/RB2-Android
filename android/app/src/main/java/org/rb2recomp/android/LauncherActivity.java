@@ -133,6 +133,9 @@ public class LauncherActivity extends Activity {
         installButton = button("Select my Raging Blast 2 ISO", v -> pickIso());
         buttons.addView(playButton);
         buttons.addView(installButton);
+        // Runs the real GameHub-style TouchControls View without game data or native libraries.
+        buttons.addView(button("Test touch controls", v ->
+                startActivity(new Intent(this, TouchPreviewActivity.class))));
         if (UpdateChecker.enabled(this)) {
             updateButton = button("Check for updates", v -> onUpdateButton());
             buttons.addView(updateButton);

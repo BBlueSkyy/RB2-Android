@@ -49,6 +49,12 @@ android {
     }
 
     buildTypes {
+        // The GitHub Actions APK is a UI-only touch preview. Keep its app ID separate
+        // from the complete port so installing it never overwrites game data or saves.
+        debug {
+            applicationIdSuffix = ".touchpreview"
+            versionNameSuffix = "-touchpreview"
+        }
         release {
             isMinifyEnabled = false
             signingConfig = signingConfigs.getByName(if (releaseStore != null) "release" else "debug")

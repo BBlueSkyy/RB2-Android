@@ -2,6 +2,7 @@ package org.rb2recomp.android;
 
 import android.content.Context;
 import android.graphics.Rect;
+import android.hardware.input.InputManager;
 import android.net.Uri;
 import android.os.ParcelFileDescriptor;
 import android.util.TypedValue;
@@ -9,6 +10,7 @@ import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
 
 import java.util.Arrays;
 
@@ -123,6 +125,11 @@ public class GameActivity extends SDLActivity {
 
                 @Override
                 public void shown(boolean open) {
+                    if (touchControls != null) {
+                        touchControls.releaseAll();
+                        if (open) touchControls.setVisibility(View.GONE);
+                        else updateTouchAvailability();
+                    }
                     try {
                         nativeSystemUi(open);
                     } catch (UnsatisfiedLinkError ignored) {
@@ -138,7 +145,33 @@ public class GameActivity extends SDLActivity {
                     requestDisplayRate(mode == 3);
                     getWindow().getDecorView().postDelayed(GameActivity.this::hideSystemBars, 800);
                 }
+
+                @Override
+                public void touchControlsChanged(boolean enabled) {
+                    updateTouchAvailability();
+                }
             });
+            // Draw on top of SDL without modifying its SurfaceView or synthesizing Android key events.
+            touchControls = new TouchControls(this, (buttons, lx, ly, rx, ry, lt, rt) -> {
+                try {
+                    nativeTouchState(buttons, lx, ly, rx, ry, lt, rt);
+                } catch (UnsatisfiedLinkError ignored) {
+                    // SDL_main may not have started loading libmain.so yet.
+                }
+            });
+            mLayout.addView(touchControls, new ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            inputManager = (InputManager) getSystemService(INPUT_SERVICE);
+            if (inputManager != null) {
+                deviceListener = new InputManager.InputDeviceListener() {
+                    @Override public void onInputDeviceAdded(int id) { updateTouchAvailability(); }
+                    @Override public void onInputDeviceRemoved(int id) { updateTouchAvailability(); }
+                    @Override public void onInputDeviceChanged(int id) { updateTouchAvailability(); }
+                };
+                inputManager.registerInputDeviceListener(deviceListener, null);
+            }
+            updateTouchAvailability();
+
             // Let the edge swipes through to the app instead of the system back gesture (Android
             // allows up to 200 dp per edge; elsewhere the back gesture opens the menu too).
             final View decor = getWindow().getDecorView();
@@ -165,6 +198,43 @@ public class GameActivity extends SDLActivity {
 
     /** Tells the game the Xbox Guide opened / closed (it pauses gameplay). */
     static native void nativeSystemUi(boolean open);
+
+    /** Attach/detach a real SDL3 virtual gamepad only when the overlay can be used. */
+    static native void nativeTouchEnabled(boolean enabled);
+    static native void nativeTouchState(int buttons, float lx, float ly, float rx, float ry,
+                                        float lt, float rt);
+    static native void nativeTouchReset();
+
+    private TouchControls touchControls;
+    private InputManager inputManager;
+    private InputManager.InputDeviceListener deviceListener;
+
+    private void updateTouchAvailability() {
+        if (touchControls == null) return;
+        touchControls.updateStyle();
+        boolean physicalPad = false;
+        for (int id : InputDevice.getDeviceIds()) {
+            InputDevice d = InputDevice.getDevice(id);
+            if (d != null && (((d.getSources() & InputDevice.SOURCE_GAMEPAD)
+                    == InputDevice.SOURCE_GAMEPAD)
+                    || ((d.getSources() & InputDevice.SOURCE_JOYSTICK)
+                    == InputDevice.SOURCE_JOYSTICK))) {
+                physicalPad = true;
+                break;
+            }
+        }
+        // A physical pad and this SDL virtual pad would otherwise be separate guest users.
+        // Let hardware take player one, and restore touch when the pad disconnects.
+        boolean enabled = getSharedPreferences("touch_controls", MODE_PRIVATE)
+                .getBoolean("enabled", true) && !physicalPad;
+        boolean visible = enabled && (menu == null || !menu.isOpen());
+        if (!visible) touchControls.releaseAll();
+        touchControls.setVisibility(visible ? View.VISIBLE : View.GONE);
+        try {
+            nativeTouchEnabled(enabled);
+        } catch (UnsatisfiedLinkError ignored) {
+        }
+    }
 
     /** The same full-screen flags SDL sets (SDLActivity COMMAND_CHANGE_WINDOW_STYLE). */
     private void hideSystemBars() {
@@ -218,6 +288,13 @@ public class GameActivity extends SDLActivity {
             return super.dispatchTouchEvent(ev);
         }
         final int action = ev.getActionMasked();
+        // SDLActivity may load libmain.so after onCreate/onResume attempted nativeTouchEnabled.
+        // Reaffirm the virtual pad on the first actual touch, before publishing its button
+        // state, so startup without a physical controller never silently drops input.
+        if (action == MotionEvent.ACTION_DOWN && touchControls != null
+                && touchControls.getVisibility() == View.VISIBLE) {
+            try { nativeTouchEnabled(true); } catch (UnsatisfiedLinkError ignored) {}
+        }
         if (swallowGesture) {
             // The rest of the swipe that opened the menu.
             if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
@@ -361,6 +438,7 @@ public class GameActivity extends SDLActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        updateTouchAvailability();
         writeDisplayHz();
         if (displayListener == null) {
             displayListener = new android.hardware.display.DisplayManager.DisplayListener() {
@@ -380,9 +458,26 @@ public class GameActivity extends SDLActivity {
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
+        if (!hasFocus && touchControls != null) touchControls.releaseAll();
         if (hasFocus && menu != null) {
             hideSystemBars();
         }
+    }
+
+    @Override
+    protected void onPause() {
+        if (touchControls != null) touchControls.releaseAll();
+        try { nativeTouchReset(); } catch (UnsatisfiedLinkError ignored) {}
+        super.onPause();
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (inputManager != null && deviceListener != null) {
+            inputManager.unregisterInputDeviceListener(deviceListener);
+        }
+        if (touchControls != null) touchControls.releaseAll();
+        super.onDestroy();
     }
 
     /**
