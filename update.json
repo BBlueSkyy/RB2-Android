@@ -1,8 +1,8 @@
 {
-  "versionCode": 120,
-  "versionName": "1.2.0",
-  "apk": "https://github.com/moddedrounds/RB2-Android/releases/download/v1.2.0/RB2-Android.apk",
-  "sha256": "8765a9f0b3b2d78efcfd36082e2b9a89ad7d54855a404502a4a25804d5a00f5c",
-  "size": 77355143,
-  "notes": "Runs on more phones: per-GPU graphics driver (Turnip 8xx for Snapdragon 8 Elite), Mali/PowerVR support, cooler CPU placement, resolution defaults, RB2 resolution option."
+  "versionCode": 121,
+  "versionName": "1.2.1",
+  "apk": "https://github.com/moddedrounds/RB2-Android/releases/download/v1.2.1/RB2-Android.apk",
+  "sha256": "614e66dbc000406a89182fc2207f7c17685da9953b077e53258cf2e9cc51bd60",
+  "size": 77362891,
+  "notes": "Pauses in the background (no longer slows other apps); fixes the black screen after switching back."
 }
