@@ -1,8 +1,8 @@
 {
-  "versionCode": 121,
-  "versionName": "1.2.1",
-  "apk": "https://github.com/moddedrounds/RB2-Android/releases/download/v1.2.1/RB2-Android.apk",
-  "sha256": "614e66dbc000406a89182fc2207f7c17685da9953b077e53258cf2e9cc51bd60",
-  "size": 77362891,
-  "notes": "Pauses in the background (no longer slows other apps); fixes the black screen after switching back."
+  "versionCode": 122,
+  "versionName": "1.2.2",
+  "apk": "https://github.com/moddedrounds/RB2-Android/releases/download/v1.2.2/RB2-Android.apk",
+  "sha256": "38ae934297e77e2ff0fcd36330fd60ec50f1f4033b23d750857e6e9ace1aee6f",
+  "size": 77367891,
+  "notes": "New: Import driver (.zip) - load a Turnip / AdrenoTools driver from your storage."
 }
