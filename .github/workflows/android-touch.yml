@@ -3,6 +3,7 @@ name: Android touch controls compile
 on:
   push:
     branches:
+      - android
       - feature/touchscreen-gamepad
     paths:
       - '.github/workflows/android-touch.yml'
@@ -10,6 +11,7 @@ on:
       - 'android/native/src/touch_input.*'
       - 'android/build.gradle.kts'
       - 'android/settings.gradle.kts'
+  workflow_dispatch:
   pull_request:
     branches:
       - android
