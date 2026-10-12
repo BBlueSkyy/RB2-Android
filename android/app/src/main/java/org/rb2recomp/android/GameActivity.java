@@ -288,6 +288,13 @@ public class GameActivity extends SDLActivity {
             return super.dispatchTouchEvent(ev);
         }
         final int action = ev.getActionMasked();
+        // SDLActivity may load libmain.so after onCreate/onResume attempted nativeTouchEnabled.
+        // Reaffirm the virtual pad on the first actual touch, before publishing its button
+        // state, so startup without a physical controller never silently drops input.
+        if (action == MotionEvent.ACTION_DOWN && touchControls != null
+                && touchControls.getVisibility() == View.VISIBLE) {
+            try { nativeTouchEnabled(true); } catch (UnsatisfiedLinkError ignored) {}
+        }
         if (swallowGesture) {
             // The rest of the swipe that opened the menu.
             if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
