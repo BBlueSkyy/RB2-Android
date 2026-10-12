@@ -391,7 +391,10 @@ public class GameActivity extends SDLActivity {
 
     @Override
     protected String[] getLibraries() {
-        return new String[] {runtimeLibraryName(this), "main"};
+        // The full APK links touch JNI to the *same* SDL3 runtime as the game.
+        // The extra .so must load after librexruntime and before libmain; the preview APK
+        // (without a game) keeps using the Java-only touch preview.
+        return new String[] {runtimeLibraryName(this), "touchbridge", "main"};
     }
 
     /**
