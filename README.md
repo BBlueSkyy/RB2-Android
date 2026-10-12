@@ -1,4 +1,5 @@
-> **Android port fork.** This fork adds an Android (arm64) build: see **[ANDROID.md](ANDROID.md)**.
+> **Android port fork.** [**Download the Android APK**](https://github.com/moddedrounds/RB2-Android/releases/latest/download/RB2-Android.apk), then follow
+> **[ANDROID.md](ANDROID.md#players-start-here)**: pick the ISO of your own disc in the app and play.
 > No game data is included; you need your own legally obtained copy of the game.
 
 # rb2 - Dragon Ball Raging Blast 2 Recompiled
