@@ -35,6 +35,9 @@ final class InGameMenu {
 
         /** The frame rate mode changed: the activity asks the display for 120 Hz in mode 3. */
         void fpsModeChanged(int mode);
+
+        /** Called when the user's touch-control preference changes. */
+        void touchControlsChanged(boolean enabled);
     }
 
     private final Activity activity;
@@ -43,7 +46,7 @@ final class InGameMenu {
     private final boolean startMsaa;    // ... and its anti-aliasing
     private final FrameLayout overlay;  // full screen: dims the game, closes on a tap outside
     private final LinearLayout panel;
-    private final LinearLayout fpsRow, fgRow, upscalerRow, scaleRow, aaRow;
+    private final LinearLayout fpsRow, fgRow, upscalerRow, scaleRow, aaRow, touchRow;
     private final TextView fgNote, scaleNote;
     private final Button restartButton;
     private boolean open;
@@ -80,6 +83,7 @@ final class InGameMenu {
         fgNote = note();
         panel.addView(fgNote);
         upscalerRow = row("FSR upscaling");
+        touchRow = row("Touch controls");
         scaleRow = row("Resolution");
         aaRow = row("Anti-aliasing");
         aaRow.setVisibility(View.GONE);  // the game's own 2x MSAA; forcing 1x breaks its surfaces
@@ -190,6 +194,13 @@ final class InGameMenu {
         refresh();
     }
 
+    private void setTouchControls(boolean on) {
+        activity.getSharedPreferences("touch_controls", Activity.MODE_PRIVATE)
+                .edit().putBoolean("enabled", on).apply();
+        nativeSide.touchControlsChanged(on);
+        refresh();
+    }
+
     private void setMsaa(boolean on) {
         LaunchConfig.setMsaa(activity, on);
         refresh();
@@ -226,6 +237,10 @@ final class InGameMenu {
                 : mode == 0 ? "30 fps game, every second frame generated: 60 shown, coolest smooth option."
                 : "Locked 30 fps, no generated frames.");
         fill(upscalerRow, new String[] {"On", "Off"}, fsr ? 0 : 1, i -> setFsr(i == 0));
+        boolean touch = activity.getSharedPreferences("touch_controls", Activity.MODE_PRIVATE)
+                .getBoolean("enabled", true);
+        fill(touchRow, new String[] {"On", "Off"}, touch ? 0 : 1,
+                i -> setTouchControls(i == 0));
         final int[] scales = LaunchConfig.RENDER_SCALES;
         fill(scaleRow, labels(scales), indexOf(scales, scale), i -> setScale(scales[i]));
         boolean msaa = LaunchConfig.msaa(activity);
