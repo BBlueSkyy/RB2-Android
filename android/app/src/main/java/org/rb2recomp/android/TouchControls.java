@@ -4,6 +4,7 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.RectF;
 import android.util.SparseArray;
 import android.view.MotionEvent;
 import android.view.View;
@@ -56,12 +57,33 @@ final class TouchControls extends View {
     private final SparseArray<Finger> fingers = new SparseArray<>();
     private int pressed;
     private float lx, ly, rx, ry, lt, rt;
+    private int opacityPercent = 75;
+    private int sizePercent = 100;
 
     TouchControls(Context context, Listener listener) {
         super(context);
         this.listener = listener;
         setFocusable(false);
         setWillNotDraw(false);
+        updateStyle();
+    }
+
+    void updateStyle() {
+        int opacity = getContext().getSharedPreferences("touch_controls", Context.MODE_PRIVATE)
+                .getInt("opacity", 75);
+        int size = getContext().getSharedPreferences("touch_controls", Context.MODE_PRIVATE)
+                .getInt("size", 100);
+        opacity = Math.max(30, Math.min(100, opacity));
+        size = Math.max(75, Math.min(125, size));
+        boolean changed = size != sizePercent;
+        opacityPercent = opacity;
+        sizePercent = size;
+        if (changed) layoutControls(getWidth(), getHeight());
+        invalidate();
+    }
+
+    private int alpha(int base) {
+        return Math.round(base * opacityPercent / 100f);
     }
 
     private void add(int code, String label, float x, float y, float radius) {
@@ -71,30 +93,39 @@ final class TouchControls extends View {
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
+        layoutControls(w, h);
+    }
+
+    private void layoutControls(int w, int h) {
         releaseAll();
         controls.clear();
-        float s = h;
-        float stick = s * 0.119f;
-        add(L_STICK, "L", w * .135f, s * .765f, stick);
-        add(DPAD, "+", w * .345f, s * .765f, s * .119f);
-        add(R_STICK, "R", w * .655f, s * .765f, stick);
+        if (w <= 0 || h <= 0) return;
+        final float scale = sizePercent / 100f;
+        final float s = Math.min(h, w / 1.7f);
+        final float stick = s * .118f * scale;
+        // GameHub-inspired arrangement: outlined shoulder pills at both edges, open middle
+        // for gameplay, concentric thumbsticks and minimal translucent face buttons.
+        add(L_STICK, "L", w * .135f, h * .76f, stick);
+        add(DPAD, "+", w * .345f, h * .77f, s * .115f * scale);
+        add(R_STICK, "R", w * .655f, h * .76f, stick);
 
-        float fx = w * .875f, fy = s * .723f, space = s * .116f, face = s * .058f;
+        float fx = w * .875f, fy = h * .725f;
+        float space = s * .115f * scale, face = s * .057f * scale;
         add(A, "A", fx, fy + space, face);
         add(B, "B", fx + space, fy, face);
         add(X, "X", fx - space, fy, face);
         add(Y, "Y", fx, fy - space, face);
 
-        float top = s * .17f, shoulder = s * .065f;
-        add(LB, "LB", w * .12f, top, shoulder);
-        add(LT, "LT", w * .255f, top, shoulder);
-        add(BACK, "Back", w * .43f, top, s * .060f);
-        add(START, "Start", w * .57f, top, s * .060f);
-        add(RB, "RB", w * .745f, top, shoulder);
-        add(RT, "RT", w * .88f, top, shoulder);
+        float shoulder = s * .055f * scale;
+        add(LT, "LT", w * .115f, h * .18f, shoulder);
+        add(LB, "LB", w * .115f, h * .32f, shoulder);
+        add(RT, "RT", w * .885f, h * .18f, shoulder);
+        add(RB, "RB", w * .885f, h * .32f, shoulder);
 
-        add(L3, "L3", w * .215f, s * .43f, s * .048f);
-        add(R3, "R3", w * .785f, s * .43f, s * .048f);
+        add(BACK, "Back", w * .445f, h * .18f, s * .042f * scale);
+        add(START, "Start", w * .555f, h * .18f, s * .042f * scale);
+        add(L3, "L3", w * .12f, h * .51f, s * .044f * scale);
+        add(R3, "R3", w * .88f, h * .51f, s * .044f * scale);
     }
 
     private Control hit(float x, float y) {
@@ -102,8 +133,10 @@ final class TouchControls extends View {
         float score = Float.POSITIVE_INFINITY;
         for (Control c : controls) {
             float dx = x - c.x, dy = y - c.y;
-            float radius = c.radius * (c.code < 0 && c.code != LT && c.code != RT ? 1.28f : 1.40f);
-            float distance = (dx * dx + dy * dy) / (radius * radius);
+            boolean pill = isPill(c.code);
+            float rx = c.radius * (pill ? 1.65f : 1.28f);
+            float ry = c.radius * (pill ? .94f : 1.28f);
+            float distance = (dx * dx) / (rx * rx) + (dy * dy) / (ry * ry);
             if (distance <= 1f && distance < score) {
                 best = c;
                 score = distance;
@@ -203,35 +236,98 @@ final class TouchControls extends View {
         return (pressed & ((1 << UP) | (1 << DOWN) | (1 << LEFT) | (1 << RIGHT))) != 0;
     }
 
+    private static boolean isPill(int code) {
+        return code == LT || code == RT || code == LB || code == RB
+                || code == BACK || code == START;
+    }
+
+    private void fill(int color, int opacity) {
+        paint.setStyle(Paint.Style.FILL);
+        paint.setColor(Color.argb(alpha(opacity), Color.red(color),
+                Color.green(color), Color.blue(color)));
+    }
+
+    private void outline(int opacity, float width) {
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setStrokeWidth(width);
+        paint.setColor(Color.argb(alpha(opacity), 239, 246, 255));
+    }
+
+    private void label(Canvas canvas, String label, float x, float y, float textSize,
+                       int color, int opacity) {
+        fill(color, opacity);
+        paint.setTextAlign(Paint.Align.CENTER);
+        paint.setTypeface(android.graphics.Typeface.create(
+                android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD));
+        paint.setTextSize(textSize);
+        canvas.drawText(label, x, y - (paint.ascent() + paint.descent()) / 2f, paint);
+    }
+
+    private void drawRoundControl(Canvas canvas, Control c, boolean down) {
+        float r = c.radius;
+        fill(0x101923, down ? 119 : 53);
+        canvas.drawCircle(c.x, c.y, r, paint);
+        outline(down ? 234 : 170, Math.max(1.4f, r * .032f));
+        canvas.drawCircle(c.x, c.y, r, paint);
+        if (c.code == L_STICK || c.code == R_STICK) {
+            float dx = (c.code == L_STICK ? lx : rx) * r * .55f;
+            float dy = (c.code == L_STICK ? ly : ry) * r * .55f;
+            fill(0xB0BCC8, down ? 145 : 75);
+            canvas.drawCircle(c.x + dx, c.y + dy, r * .51f, paint);
+            outline(down ? 231 : 130, Math.max(1.1f, r * .021f));
+            canvas.drawCircle(c.x + dx, c.y + dy, r * .51f, paint);
+            // The neutral pad stays legible even without covering the action in the center.
+            label(canvas, c.label, c.x + dx, c.y + dy, r * .32f, Color.WHITE, 165);
+        } else if (c.code == DPAD) {
+            drawDpad(canvas, c);
+        } else {
+            int color = c.code == A ? 0x93E6A6 : c.code == B ? 0xF6A19B
+                    : c.code == X ? 0x94C7F2 : c.code == Y ? 0xF8D58B : Color.WHITE;
+            label(canvas, c.label, c.x, c.y, r * (c.code == L3 || c.code == R3 ? .58f : .88f),
+                    color, down ? 255 : 230);
+        }
+    }
+
+    private void drawDpad(Canvas canvas, Control c) {
+        float unit = c.radius * .42f;
+        int[] codes = { UP, DOWN, LEFT, RIGHT };
+        float[] offsetsX = {0f, 0f, -1f, 1f};
+        float[] offsetsY = {-1f, 1f, 0f, 0f};
+        for (int i = 0; i < 4; i++) {
+            boolean down = (pressed & (1 << codes[i])) != 0;
+            float cx = c.x + offsetsX[i] * c.radius * .48f;
+            float cy = c.y + offsetsY[i] * c.radius * .48f;
+            RectF rect = new RectF(cx - unit * .47f, cy - unit * .47f,
+                    cx + unit * .47f, cy + unit * .47f);
+            fill(0xD5E1ED, down ? 110 : 19);
+            canvas.drawRoundRect(rect, unit * .22f, unit * .22f, paint);
+            outline(down ? 232 : 171, Math.max(1.2f, unit * .055f));
+            canvas.drawRoundRect(rect, unit * .22f, unit * .22f, paint);
+        }
+    }
+
+    private void drawPill(Canvas canvas, Control c, boolean down) {
+        float width = c.radius * (c.code == START || c.code == BACK ? 2.7f : 3.0f);
+        float height = c.radius * (c.code == START || c.code == BACK ? 1.28f : 1.35f);
+        float corner = c.radius * .26f;
+        RectF rect = new RectF(c.x - width / 2, c.y - height / 2,
+                c.x + width / 2, c.y + height / 2);
+        fill(0x0C1722, down ? 133 : 52);
+        canvas.drawRoundRect(rect, corner, corner, paint);
+        outline(down ? 238 : 171, Math.max(1.4f, c.radius * .038f));
+        canvas.drawRoundRect(rect, corner, corner, paint);
+        label(canvas, c.label, c.x, c.y,
+                c.radius * (c.code == START || c.code == BACK ? .45f : .71f),
+                Color.WHITE, down ? 255 : 214);
+    }
+
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
         for (Control c : controls) {
             boolean down = active(c);
-            paint.setStyle(Paint.Style.FILL);
-            paint.setColor(down ? Color.argb(166, 80, 155, 229) : Color.argb(94, 16, 23, 35));
-            canvas.drawCircle(c.x, c.y, c.radius, paint);
-            paint.setStyle(Paint.Style.STROKE);
-            paint.setStrokeWidth(Math.max(2f, c.radius * .035f));
-            paint.setColor(down ? Color.WHITE : Color.argb(185, 220, 225, 239));
-            canvas.drawCircle(c.x, c.y, c.radius, paint);
-
-            paint.setStyle(Paint.Style.FILL);
-            paint.setColor(Color.argb(220, 255, 255, 255));
-            paint.setTextAlign(Paint.Align.CENTER);
-            paint.setTextSize(c.radius * (c.code == START || c.code == BACK ? .44f : .63f));
-            if (c.code == L_STICK || c.code == R_STICK) {
-                float x = c.code == L_STICK ? lx : rx;
-                float y = c.code == L_STICK ? ly : ry;
-                paint.setColor(Color.argb(150, 210, 225, 245));
-                canvas.drawCircle(c.x + x * c.radius * .64f,
-                        c.y + y * c.radius * .64f, c.radius * .43f, paint);
-            } else if (c.code == DPAD) {
-                paint.setTextSize(c.radius * .85f);
-                canvas.drawText("✛", c.x, c.y - (paint.ascent() + paint.descent()) / 2f, paint);
-            } else {
-                canvas.drawText(c.label, c.x, c.y - (paint.ascent() + paint.descent()) / 2f, paint);
-            }
+            if (isPill(c.code)) drawPill(canvas, c, down);
+            else drawRoundControl(canvas, c, down);
         }
     }
 }
