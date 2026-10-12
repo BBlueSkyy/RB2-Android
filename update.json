@@ -1,8 +1,8 @@
 {
-  "versionCode": 110,
-  "versionName": "1.1.0",
-  "apk": "https://github.com/moddedrounds/RB2-Android/releases/download/v1.1.0/RB2-Android.apk",
-  "sha256": "9f6ea8baec74e38650905a739baec5a57c2c648eb1808709a072997e2aaf48a1",
-  "size": 63372073,
-  "notes": "In-app update checks"
+  "versionCode": 120,
+  "versionName": "1.2.0",
+  "apk": "https://github.com/moddedrounds/RB2-Android/releases/download/v1.2.0/RB2-Android.apk",
+  "sha256": "8765a9f0b3b2d78efcfd36082e2b9a89ad7d54855a404502a4a25804d5a00f5c",
+  "size": 77355143,
+  "notes": "Runs on more phones: per-GPU graphics driver (Turnip 8xx for Snapdragon 8 Elite), Mali/PowerVR support, cooler CPU placement, resolution defaults, RB2 resolution option."
 }
