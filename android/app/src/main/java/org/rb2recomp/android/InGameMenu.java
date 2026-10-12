@@ -82,6 +82,7 @@ final class InGameMenu {
         upscalerRow = row("FSR upscaling");
         scaleRow = row("Resolution");
         aaRow = row("Anti-aliasing");
+        aaRow.setVisibility(View.GONE);  // the game's own 2x MSAA; forcing 1x breaks its surfaces
         scaleNote = note();
         panel.addView(scaleNote);
 
@@ -216,7 +217,7 @@ final class InGameMenu {
 
         boolean sixty = LaunchConfig.sixty(mode);
         boolean fg = LaunchConfig.frameGeneration(mode);
-        fill(fpsRow, new String[] {"30", "60"}, sixty ? 1 : 0, i -> setFpsMode(modeFor(i == 1, fg)));
+        fill(fpsRow, new String[] {"60"}, 0, i -> setFpsMode(modeFor(true, fg)));  // 30 = half-speed game
         fill(fgRow, new String[] {"On", "Off"}, fg ? 0 : 1, i -> setFpsMode(modeFor(sixty, i == 0)));
         float hz = activity.getWindowManager().getDefaultDisplay().getRefreshRate();
         fgNote.setText(mode == 3 ? "60 fps game + a generated frame after each: 120 shown on a 120 Hz screen"
@@ -229,10 +230,10 @@ final class InGameMenu {
         fill(scaleRow, labels(scales), indexOf(scales, scale), i -> setScale(scales[i]));
         boolean msaa = LaunchConfig.msaa(activity);
         fill(aaRow, new String[] {"2x MSAA", "Off"}, msaa ? 0 : 1, i -> setMsaa(i == 0));
-        boolean pending = scale != startScale || msaa != startMsaa;
-        scaleNote.setText(LaunchConfig.renderSize(scale, msaa) + (scale == 100 ? " (native)" : "")
-                + (pending ? "  -  resolution / anti-aliasing apply after a restart (unsaved progress is lost)" : "")
-                + "\nLower resolution or anti-aliasing off = cooler and faster (off: ~12 % less GPU work).");
+        boolean pending = scale != startScale;
+        scaleNote.setText(LaunchConfig.renderSize(scale) + (scale == 100 ? " (native)" : "")
+                + (pending ? "  -  resolution applies after a restart (unsaved progress is lost)" : "")
+                + "\nLower resolution = cooler and faster.");
         restartButton.setVisibility(pending ? View.VISIBLE : View.GONE);
     }
 

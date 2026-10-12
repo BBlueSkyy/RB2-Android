@@ -11929,3 +11929,8 @@ wcslen = 0x8244FC40
 0x825F5B18 = { size = 0x78 }
 0x825F5C50 = { size = 0xC }
 0x822289C8 = { end = 0x82228C78 }
+
+[[entrypoint.midasm_hook]]
+address = 0x823DA084
+name = "RB2RenderSizeHook"
+registers = ["r9", "r8"]

@@ -9,6 +9,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Where things live and which command-line settings the game starts with.
@@ -66,12 +68,9 @@ final class LaunchConfig {
         "--gpu_static_texture_signs=true",
         // Resolves of 8_8_8_8 / depth render targets in one compute pass.
         "--gpu_fused_resolve=true",
-        // Mesa Turnip, bundled in the APK; falls back to the stock driver when missing or after two
-        // failed starts. --android_vulkan_driver= (empty) in args.txt forces the stock driver.
         // The game puts its music and voices on the 5.1 center channel; a 6-channel stream
         // handed to Android lost them on the Thor's speakers. Fold to stereo ourselves.
         "--audio_force_stereo=true",
-        "--android_vulkan_driver=turnip",
         "--kernel_wait_poll_backoff_us=100",
         "--android_thread_affinity=true",
         "--android_affinity_mode=5",
@@ -86,8 +85,24 @@ final class LaunchConfig {
     // applied to Raging Blast 2 yet.
     static final int[] RENDER_SCALES = {100, 85, 75, 60, 50};
 
+    /**
+     * Starting resolution until the player picks one: handhelds with a fan (AYN Thor / Odin, Retroid,
+     * Ayaneo, Anbernic) render at 100 %; phones throttle hard when hot (a Galaxy S25 Ultra fell to
+     * 18 fps at locked 30 once warm), so high-end Snapdragons (Adreno 7xx / 8xx) start at 85 % and
+     * everything else at 75 %. FSR 1 scales the picture back up.
+     */
+    static int defaultRenderScale(Context context) {
+        String maker = (android.os.Build.MANUFACTURER + " " + android.os.Build.BRAND).toLowerCase(java.util.Locale.US);
+        for (String handheld : new String[] {"ayn", "retroid", "ayaneo", "anbernic", "odin"}) {
+            if (maker.contains(handheld)) return 100;
+        }
+        int generation = adrenoGeneration(context);
+        return generation >= 7 ? 85 : 75;
+    }
+
     static int renderScale(Context context) {
-        return context.getSharedPreferences("options", Context.MODE_PRIVATE).getInt("render_scale", 100);
+        return context.getSharedPreferences("options", Context.MODE_PRIVATE).getInt("render_scale",
+                defaultRenderScale(context));
     }
 
     // Frame rate modes: 0 = locked 30 shown at 60 with frame generation, 1 = locked 30,
@@ -103,8 +118,11 @@ final class LaunchConfig {
         return fpsMode == 0 || fpsMode == 3;
     }
 
+    // Raging Blast 2 runs its game logic once per frame: capped at 30 the whole game plays at half
+    // speed. Only the 60 modes are offered; older saved 30 fps choices become 60.
     static int fpsMode(Context context) {
-        return context.getSharedPreferences("options", Context.MODE_PRIVATE).getInt("fps_mode", 2);
+        int mode = context.getSharedPreferences("options", Context.MODE_PRIVATE).getInt("fps_mode", 2);
+        return sixty(mode) ? mode : 2;
     }
 
     static void setRenderScale(Context context, int scale) {
@@ -121,7 +139,7 @@ final class LaunchConfig {
     }
 
     static boolean msaa(Context context) {
-        return context.getSharedPreferences("options", Context.MODE_PRIVATE).getBoolean("msaa", true);
+        return context.getSharedPreferences("options", Context.MODE_PRIVATE).getBoolean("msaa", false);
     }
 
     static void setMsaa(Context context, boolean on) {
@@ -147,8 +165,10 @@ final class LaunchConfig {
     }
 
     static String renderSize(int scale, boolean msaa) {
-        int w = (1280 * Math.min(100, scale) / 100 + 4) & ~7;
-        int h = (720 * Math.min(100, scale) / 100 + 4) & ~7;
+        // Same rounding as src/rb2_resolution.h (multiples of 16).
+        int s = Math.min(100, scale);
+        int w = Math.max(640, (1280 * s / 100 + 8) & ~15);
+        int h = Math.max(360, (720 * s / 100 + 8) & ~15);
         return w + "x" + h;
     }
 
@@ -156,6 +176,101 @@ final class LaunchConfig {
     private static String optionName(String arg) {
         int eq = arg.indexOf('=');
         return eq < 0 ? arg : arg.substring(0, eq);
+    }
+
+    private static final Pattern ADRENO = Pattern.compile("Adreno \\(TM\\) (\\d)\\d\\d");
+
+    /** The Vulkan GPU name ("Adreno (TM) 740"), probed once and remembered. */
+    static String gpuName(Context context) {
+        android.content.SharedPreferences prefs = context.getSharedPreferences("device", Context.MODE_PRIVATE);
+        String name = prefs.getString("gpu_name", null);
+        if (name == null) {
+            name = "";
+            try {
+                Matcher m = Pattern.compile("== Device 0: (.+) ==").matcher(VulkanProbe.run());
+                if (m.find()) name = m.group(1).trim();
+            } catch (Throwable ignored) {
+            }
+            prefs.edit().putString("gpu_name", name).apply();
+        }
+        return name;
+    }
+
+    /** 6, 7, 8 ... for an Adreno 6xx / 7xx / 8xx, 0 for any other GPU. */
+    static int adrenoGeneration(Context context) {
+        Matcher m = ADRENO.matcher(gpuName(context));
+        return m.find() ? Integer.parseInt(m.group(1)) : 0;
+    }
+
+    // Graphics driver (SharedPreferences "options" gpu_driver). Automatic picks per GPU: the bundled
+    // Turnip on Adreno 6xx / 7xx, AUTO_8XX on Adreno 8xx, and the phone's own driver on everything
+    // else (Mali, PowerVR, Xclipse, older Adreno). Before using a custom driver the game checks that
+    // it finds the GPU, and falls back to the phone's driver when it does not (custom_driver.cpp).
+    static final int DRIVER_AUTO = 0, DRIVER_SYSTEM = 1, DRIVER_TURNIP = 2, DRIVER_TURNIP8 = 3;
+    static final String[] DRIVER_NAMES = {"Automatic", "Phone's own", "Turnip (Adreno 6xx/7xx)",
+            "Turnip 8xx (experimental)"};
+    // Folder under assets/drivers/ (tools/android/fetch_turnip.sh) and the library inside it.
+    // Turnip 6xx/7xx falls back to the newer a8xx build (Mesa main) on Adreno 7xx variants R8 does not
+    // know; the game uses the first folder whose driver finds the GPU (custom_driver.cpp).
+    private static final String[] DRIVER_FOLDERS = {null, null, "turnip,turnip8", "turnip8"};
+    private static final String[] DRIVER_LIBS = {null, null, "vulkan.ad07xx.so", "libvulkan_freedreno.so"};
+    // The a8xx build draws with page faults through GMEM on the Adreno 830; sysmem rendering is clean.
+    private static final String[] DRIVER_ENV = {null, null, null, "TU_DEBUG=sysmem"};
+    // The stock driver on the Adreno 830 (Galaxy S25 Ultra) draws the same blue haze / flicker as
+    // the Thor's stock driver; the a8xx Turnip renders correctly.
+    static final int AUTO_8XX = DRIVER_TURNIP8;
+
+    static int driverChoice(Context context) {
+        int c = context.getSharedPreferences("options", Context.MODE_PRIVATE).getInt("gpu_driver", DRIVER_AUTO);
+        return c >= 0 && c < DRIVER_NAMES.length ? c : DRIVER_AUTO;
+    }
+
+    /** Choosing a driver again also forgets that it failed to start before. */
+    static void setDriverChoice(Context context, int choice) {
+        context.getSharedPreferences("options", Context.MODE_PRIVATE).edit().putInt("gpu_driver", choice).apply();
+        String folder = DRIVER_FOLDERS[choice == DRIVER_AUTO ? autoDriver(context) : choice];
+        if (folder != null) {
+            for (String f : folder.split(",")) {
+                //noinspection ResultOfMethodCallIgnored
+                new File(context.getFilesDir(), "drivers/.failed_" + f).delete();
+            }
+        }
+    }
+
+    static int autoDriver(Context context) {
+        int generation = adrenoGeneration(context);
+        if (generation == 6 || generation == 7) return DRIVER_TURNIP;
+        if (generation == 8) return AUTO_8XX;
+        return DRIVER_SYSTEM;
+    }
+
+    static int effectiveDriver(Context context) {
+        int choice = driverChoice(context);
+        return choice == DRIVER_AUTO ? autoDriver(context) : choice;
+    }
+
+    static String driverLabel(Context context) {
+        int choice = driverChoice(context);
+        return choice == DRIVER_AUTO ? "Automatic (" + DRIVER_NAMES[autoDriver(context)] + ")" : DRIVER_NAMES[choice];
+    }
+
+    /** What the last launch actually ran on, as written by the game (custom_driver.cpp). */
+    static String lastDriver(Context context) {
+        File f = new File(context.getFilesDir(), "drivers/last_driver.txt");
+        try (BufferedReader reader = new BufferedReader(new FileReader(f))) {
+            String line = reader.readLine();
+            return line != null ? line.trim() : "";
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    private static void addDriverArguments(Context context, List<String> args) {
+        int driver = effectiveDriver(context);
+        if (DRIVER_FOLDERS[driver] == null) return;
+        args.add("--android_vulkan_driver=" + DRIVER_FOLDERS[driver]);
+        args.add("--android_vulkan_driver_lib=" + DRIVER_LIBS[driver]);
+        if (DRIVER_ENV[driver] != null) args.add("--android_vulkan_driver_env=" + DRIVER_ENV[driver]);
     }
 
     static String[] buildArguments(Context context) {
@@ -178,6 +293,11 @@ final class LaunchConfig {
         // Adreno has no sparse binding; the framebuffer-object render target path is the portable one.
         defaults.add("--vulkan_sparse_shared_memory=false");
         defaults.add("--render_target_path_vulkan=fbo");
+        // Mali and PowerVR GPUs have no geometry shaders and no wireframe fill: the SDK has
+        // fallbacks for both (primitive expansion in the vertex shader, solid fill).
+        defaults.add("--vulkan_require_geometry_shader=false");
+        defaults.add("--vulkan_require_fill_mode_non_solid=false");
+        addDriverArguments(context, defaults);
         for (String flag : PERFORMANCE) {
             defaults.add(flag);
         }
@@ -189,6 +309,8 @@ final class LaunchConfig {
         // The guest 60 Hz vblank follows the display's own vsync (AChoreographer).
         defaults.add("--gpu_vblank_display_lock=true");
         defaults.add("--present_effect=" + (fsr(context) ? "fsr" : "bilinear"));
+        // Internal resolution (src/rb2_resolution.h); the presenter scales it to the screen.
+        defaults.add("--rb2_render_scale=" + renderScale(context));
         if (showFps(context)) {
             defaults.add("--show_debug_overlay=true");
         }

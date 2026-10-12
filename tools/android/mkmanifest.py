@@ -79,4 +79,12 @@ includes = []
         o.write(f"0x{addr:08X} = {{ size = 0x{size:X} }}\n")
     for addr, end in EXTRA_FUNCS.items():
         o.write(f"0x{addr:08X} = {{ end = 0x{end:08X} }}\n")
+    # Mid-function hooks (src/rb2_resolution.h): the renderer setup stores its fixed 1280x720 render
+    # size with "stw r9,24(r31)" / "stw r8,28(r31)"; the hook may shrink r9 / r8 just before.
+    o.write("""
+[[entrypoint.midasm_hook]]
+address = 0x823DA084
+name = "RB2RenderSizeHook"
+registers = ["r9", "r8"]
+""")
 print(f"{len(funcs)} functions, {len(crt)} rexcrt entries -> {dst}")

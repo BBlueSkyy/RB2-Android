@@ -73,6 +73,8 @@ android {
         getByName("main") {
             java.srcDir(sdkTree.resolve("thirdparty/sdl3/android-project/app/src/main/java"))
             if (hasArt) res.srcDir(artRes)
+            // Third-party licence notices (android/licenses/NOTICE.txt), shown by the launcher.
+            assets.srcDir(rootProject.projectDir.resolve("licenses"))
         }
     }
 

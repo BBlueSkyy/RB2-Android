@@ -124,3 +124,5 @@ RB2_CRI_SINK(824775F0)  // "IXAudio2SourceVoice_SubmitSourceBuffer failed" (mess
 RB2_CRI_SINK(82477640)
 RB2_CRI_SINK(8246FAD8)
 RB2_CRI_SINK(82479B48)
+
+#include "rb2_resolution.h"
