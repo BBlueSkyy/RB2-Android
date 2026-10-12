@@ -1,0 +1,8 @@
+{
+  "versionCode": 110,
+  "versionName": "1.1.0",
+  "apk": "https://github.com/moddedrounds/RB2-Android/releases/download/v1.1.0/RB2-Android.apk",
+  "sha256": "9f6ea8baec74e38650905a739baec5a57c2c648eb1808709a072997e2aaf48a1",
+  "size": 63372073,
+  "notes": "In-app update checks"
+}
