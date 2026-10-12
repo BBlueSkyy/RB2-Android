@@ -34,7 +34,7 @@ verifies and installs them, keeping your installed game and saves.
 
 Requirements: Android 10 or newer, ARM64, Vulkan, and about 6 GB free in addition to the ISO.
 Tested on the AYN Thor (Snapdragon 8 Gen 2) and a Galaxy S25 Ultra (Snapdragon 8 Elite); a
-**controller is required** (there are no touch controls). See *Which phones work* below.
+**touchscreen controls or a physical controller** can be used. See *Which phones work* below.
 
 ## Which phones work
 
