@@ -38,17 +38,38 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      # ubuntu-24.04 already provides the Android command-line SDK tools. The
-      # setup-android@v3 action tries to install the removed legacy "tools"
-      # package and fails before running sdkmanager for the actual dependencies.
+      # The setup-android@v3 default attempts to install the obsolete "tools"
+      # package. The runner SDK may also lack sdkmanager on PATH, so resolve
+      # command-line tools explicitly; bootstrap only if none are installed.
       - name: Install Android 35 and NDK 28
         shell: bash
         run: |
           set -euo pipefail
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          command -v sdkmanager
-          sdkmanager --version
-          sdkmanager --install "platforms;android-35" "build-tools;35.0.0" "ndk;28.2.13676358"
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          mkdir -p "$SDK_ROOT/cmdline-tools"
+          SDKMANAGER=""
+          while IFS= read -r candidate; do
+            if [ -x "$candidate" ]; then
+              SDKMANAGER="$candidate"
+              break
+            fi
+          done < <(find "$SDK_ROOT/cmdline-tools" -type f -path '*/bin/sdkmanager' | sort -r)
+          if [ -z "$SDKMANAGER" ]; then
+            echo "Android command-line tools are absent; installing Google's command-line tools."
+            curl -fL --retry 3 -o "$RUNNER_TEMP/commandlinetools.zip" \
+              https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+            unzip -q "$RUNNER_TEMP/commandlinetools.zip" -d "$RUNNER_TEMP/sdk-cli"
+            mkdir -p "$SDK_ROOT/cmdline-tools/latest"
+            cp -R "$RUNNER_TEMP/sdk-cli/cmdline-tools/." "$SDK_ROOT/cmdline-tools/latest/"
+            SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          fi
+          echo "SDK manager: $SDKMANAGER"
+          "$SDKMANAGER" --version
+          (yes || true) | "$SDKMANAGER" --sdk_root="$SDK_ROOT" --licenses > /dev/null
+          "$SDKMANAGER" --sdk_root="$SDK_ROOT" --install \
+            "platforms;android-35" "build-tools;35.0.0" "ndk;28.2.13676358"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
 
       # The game itself must be code-generated from a user's own disc. This public CI job
       # deliberately compiles only the Android Java sources and virtual controller JNI source,
