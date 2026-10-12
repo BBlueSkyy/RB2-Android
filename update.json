@@ -1,8 +1,8 @@
 {
-  "versionCode": 122,
-  "versionName": "1.2.2",
-  "apk": "https://github.com/moddedrounds/RB2-Android/releases/download/v1.2.2/RB2-Android.apk",
-  "sha256": "38ae934297e77e2ff0fcd36330fd60ec50f1f4033b23d750857e6e9ace1aee6f",
-  "size": 77367891,
-  "notes": "New: Import driver (.zip) - load a Turnip / AdrenoTools driver from your storage."
+  "versionCode": 123,
+  "versionName": "1.2.3",
+  "apk": "https://github.com/moddedrounds/RB2-Android/releases/download/v1.2.3/RB2-Android.apk",
+  "sha256": "2a1545ed89745f3ad92848304735b548449429f6b5c584898ae233854276635d",
+  "size": 77741419,
+  "notes": "New icon; the launcher background now comes from your own installed game."
 }
