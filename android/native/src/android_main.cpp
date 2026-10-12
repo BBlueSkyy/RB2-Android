@@ -42,6 +42,7 @@
 #include "custom_driver.h"
 #include "display_vsync.h"
 #include "thread_affinity.h"
+#include "touch_input.h"
 
 namespace {
 
@@ -199,6 +200,7 @@ int RunGame(int argc, char** argv) {
 
     if (app->OnInitialize()) {
       thps::driver::MarkSuccess();
+      thps::touch::Initialize();
       // After initialisation so the game's threads exist and the log is open; the watcher also
       // picks up threads created later.
       auto affinity = thps::affinity::Start();
@@ -217,6 +219,7 @@ int RunGame(int argc, char** argv) {
       g_pause_cv.notify_all();
       pause_worker.join();
       affinity.reset();
+      thps::touch::Shutdown();
     } else {
       result = EXIT_FAILURE;
     }
