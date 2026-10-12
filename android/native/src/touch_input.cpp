@@ -41,6 +41,9 @@ void NeutralLocked() {
 }
 
 void SyncAttachmentLocked() {
+  // SDLActivity can call JNI before the ReXGlue driver initializes SDL_INIT_GAMEPAD.
+  // Retry on the first touch rather than silently leaving the touchscreen disconnected.
+  if (!ready) ready = SDL_WasInit(SDL_INIT_GAMEPAD) != 0;
   if (!ready) return;
   if (enabled && !joystick) {
     SDL_VirtualJoystickDesc desc;
@@ -126,6 +129,7 @@ void Enable(bool on) {
 
 void State(uint32_t buttons, float lx, float ly, float rx, float ry, float lt, float rt) {
   std::lock_guard guard(mutex);
+  if (enabled && !joystick) SyncAttachmentLocked();
   const std::array<Sint16, SDL_GAMEPAD_AXIS_COUNT> axes = {
       Stick(lx), Stick(ly), Stick(rx), Stick(ry), Trigger(lt), Trigger(rt)};
   SetStateLocked(buttons, axes);
