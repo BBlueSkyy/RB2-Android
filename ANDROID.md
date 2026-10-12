@@ -193,3 +193,29 @@ other phones:
 
 Dragon Ball: Raging Blast 2 is a trademark of its respective owners. This project is not affiliated
 with or endorsed by them.
+
+
+### Full native APK with touchscreen (CI)
+
+The separate [Android full touchscreen APK workflow](.github/workflows/android-full-apk.yml)
+creates a **full native APK** using the publicly released, unmodified upstream
+[RB2-Android v1.2.3](https://github.com/moddedrounds/RB2-Android/releases/tag/v1.2.3)
+runtime libraries. It verifies the release's SHA-256, then compiles the isolated
+`libtouchbridge.so` JNI adapter against the *same* embedded SDL3 symbols in
+`librexruntimerd.so`. This avoids recompiling any game-specific code and uses
+no copyrighted game data in GitHub Actions.
+
+The artifact is called **RB2-Android-Touch-Full-APK**. It uses package name
+`org.rb2recomp.android.touchplay` to install alongside official builds without
+overwriting saves; the filename is `app-touchplay.apk`. Open its launcher and
+select the Xbox 360 USA Rev 1 (v1.1) ISO made from **your own disc**; PS3 ISOs
+will not work. The in-app **Test touch controls** screen also works without
+an ISO. Builds signed with ephemeral CI debug keys may need an uninstall before
+installing a newer CI APK under the same `.touchplay` package.
+
+**Native bridge notes:** This binary-reuse build is pinned to the upstream
+release and cannot carry arbitrary game-core changes made after that upstream
+release. The runtime and GPU plugin remain upstream binaries, while Android
+Java UI and touch JNI are compiled from this fork. The full APK is a functional
+integration candidate, *not yet confirmed on device*. A from-source game build
+still needs your legally sourced `default.xex`, code generation and the SDK.

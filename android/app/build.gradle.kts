@@ -59,6 +59,14 @@ android {
             isMinifyEnabled = false
             signingConfig = signingConfigs.getByName(if (releaseStore != null) "release" else "debug")
         }
+        // Separate full native build: never overwrites the original upstream install.
+        // Runs the same game code as the verified upstream binary, plus libtouchbridge.so.
+        create("touchplay") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".touchplay"
+            versionNameSuffix = "-touchplay"
+            signingConfig = signingConfigs.getByName("debug")
+        }
     }
 
     packaging {

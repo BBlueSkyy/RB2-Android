@@ -1,0 +1,155 @@
+name: Android full touchscreen APK
+
+on:
+  push:
+    branches:
+      - feature/full-apk-touch-bridge
+    paths:
+      - '.github/workflows/android-full-apk.yml'
+      - 'tools/android/build_touch_bridge.sh'
+      - 'android/app/**'
+      - 'android/native/src/touch_input.*'
+  pull_request:
+    branches:
+      - android
+    paths:
+      - '.github/workflows/android-full-apk.yml'
+      - 'tools/android/build_touch_bridge.sh'
+      - 'android/app/**'
+      - 'android/native/src/touch_input.*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  full-native-apk:
+    name: Package native game + new touch JNI
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v4
+
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Android SDK and NDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          mkdir -p "$SDK_ROOT/cmdline-tools"
+          SDKMANAGER=""
+          while IFS= read -r candidate; do
+            if [ -x "$candidate" ]; then SDKMANAGER="$candidate"; break; fi
+          done < <(find "$SDK_ROOT/cmdline-tools" -type f -path '*/bin/sdkmanager' | sort -r)
+          if [ -z "$SDKMANAGER" ]; then
+            curl -fL --retry 3 -o "$RUNNER_TEMP/commandlinetools.zip" \
+              https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+            mkdir -p "$RUNNER_TEMP/sdk-cli" "$SDK_ROOT/cmdline-tools/latest"
+            unzip -q "$RUNNER_TEMP/commandlinetools.zip" -d "$RUNNER_TEMP/sdk-cli"
+            cp -R "$RUNNER_TEMP/sdk-cli/cmdline-tools/." "$SDK_ROOT/cmdline-tools/latest/"
+            SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          fi
+          (yes || true) | "$SDKMANAGER" --sdk_root="$SDK_ROOT" --licenses > /dev/null
+          "$SDKMANAGER" --sdk_root="$SDK_ROOT" --install \
+            "platforms;android-35" "build-tools;35.0.0" "ndk;28.2.13676358"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_HOME=$SDK_ROOT/ndk/28.2.13676358" >> "$GITHUB_ENV"
+
+      - name: Fetch SDL3 exactly as pinned by ReXGlue 0.10.0
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDL="$GITHUB_WORKSPACE/../rexglue-sdk-android/thirdparty/sdl3"
+          mkdir -p "$SDL"
+          git -C "$SDL" init
+          git -C "$SDL" remote add origin https://github.com/libsdl-org/SDL.git
+          git -C "$SDL" fetch --depth=1 origin 8bf3b7215ad9fc3deb583c6a3a37c6c67f2e24e4
+          git -C "$SDL" checkout --detach FETCH_HEAD
+          cp "$SDL/android-project/gradlew" android/gradlew
+          chmod +x android/gradlew
+          mkdir -p android/gradle/wrapper
+          cp "$SDL/android-project/gradle/wrapper/gradle-wrapper.jar" android/gradle/wrapper/
+          cp "$SDL/android-project/gradle/wrapper/gradle-wrapper.properties" android/gradle/wrapper/
+
+      - name: Fetch signed upstream release APK (pinned SHA-256)
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 4 --retry-all-errors --connect-timeout 30 \
+            -o "$RUNNER_TEMP/upstream.apk" \
+            https://github.com/moddedrounds/RB2-Android/releases/download/v1.2.3/RB2-Android.apk
+          echo "2a1545ed89745f3ad92848304735b548449429f6b5c584898ae233854276635d  $RUNNER_TEMP/upstream.apk" | sha256sum -c -
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          import os
+          apk = Path(os.environ['RUNNER_TEMP']) / 'upstream.apk'
+          dst = Path('android/app/src/main/jniLibs/arm64-v8a')
+          dst.mkdir(parents=True, exist_ok=True)
+          drivers = Path('android/app/src/main/assets/drivers')
+          with ZipFile(apk) as z:
+              for name in z.namelist():
+                  if name.startswith('lib/arm64-v8a/') and name.endswith('.so'):
+                      basename = name.removeprefix('lib/arm64-v8a/')
+                      if '/' in basename or not basename: raise RuntimeError('Unsafe native library path')
+                      (dst / basename).write_bytes(z.read(name))
+                  if name.startswith('assets/drivers/') and not name.endswith('/'):
+                      tail = name.removeprefix('assets/drivers/')
+                      parts = Path(tail).parts
+                      if not tail or any(p in ('..', '.') for p in parts): raise RuntimeError('Unsafe driver asset path')
+                      target = drivers.joinpath(*parts)
+                      target.parent.mkdir(parents=True, exist_ok=True)
+                      target.write_bytes(z.read(name))
+          required = ['libmain.so', 'librexruntimerd.so', 'librexgpu-xenosrd.so', 'libc++_shared.so']
+          for lib in required:
+              if not (dst / lib).is_file(): raise RuntimeError('Pinned upstream binary lacks ' + lib)
+          print('Native .so libraries:', sorted(p.name for p in dst.glob('*.so')))
+          print('Bundled Vulkan driver assets:', len(list(drivers.rglob('*'))) if drivers.exists() else 0)
+          PY
+
+      - name: Build SDL3 virtual gamepad JNI against upstream runtime
+        shell: bash
+        run: |
+          bash tools/android/build_touch_bridge.sh \
+            android/app/src/main/jniLibs/arm64-v8a \
+            "$GITHUB_WORKSPACE/../rexglue-sdk-android/thirdparty/sdl3/include"
+
+      - name: Assemble full native touchscreen APK
+        working-directory: android
+        run: ./gradlew --no-daemon --stacktrace :app:assembleTouchplay
+
+      - name: Verify packaged native libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="android/app/build/outputs/apk/touchplay/app-touchplay.apk"
+          test -f "$APK"
+          for lib in main rexruntimerd rexgpu-xenosrd touchbridge; do
+            unzip -Z1 "$APK" | grep -qx "lib/arm64-v8a/lib${lib}.so"
+          done
+          unzip -Z1 "$APK" | grep -qx 'lib/arm64-v8a/libc++_shared.so'
+          sha256sum "$APK"
+          ls -lh "$APK"
+
+      - name: Upload installable full touchscreen APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: RB2-Android-Touch-Full-APK
+          path: android/app/build/outputs/apk/touchplay/app-touchplay.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Summary
+        if: always()
+        run: |
+          echo '## Full RB2-Android touchscreen build' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Uses upstream v1.2.3 native libraries checked against a fixed SHA-256; adds freshly built SDL3 virtual-gamepad JNI and fork Java UI.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Artifact: **RB2-Android-Touch-Full-APK**, package **org.rb2recomp.android.touchplay** (separate install).' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Game data is not bundled. The game requires a personal Xbox 360 USA Rev 1 disc image, not the PS3 version.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Compilation alone does not prove runtime behavior; test on a device.' >> "$GITHUB_STEP_SUMMARY"
