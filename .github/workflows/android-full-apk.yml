@@ -20,7 +20,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write   # publish a direct-download prerelease APK after signature verification
 
 jobs:
   full-native-apk:
@@ -134,6 +134,15 @@ jobs:
             unzip -Z1 "$APK" | grep -qx "lib/arm64-v8a/lib${lib}.so"
           done
           unzip -Z1 "$APK" | grep -qx 'lib/arm64-v8a/libc++_shared.so'
+          echo "== ZIP entry integrity =="
+          unzip -tqq "$APK"
+          echo "== ZIP alignment =="
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$APK"
+          echo "== Android signature =="
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
+          echo "== Android install metadata =="
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -E "^package:|^sdkVersion:|^targetSdkVersion:|^native-code:"
+          echo "== Package hash/size =="
           sha256sum "$APK"
           ls -lh "$APK"
 
@@ -144,6 +153,24 @@ jobs:
           path: android/app/build/outputs/apk/touchplay/app-touchplay.apk
           if-no-files-found: error
           retention-days: 14
+
+      # GitHub Actions artifacts are ZIP archives. Android cannot install those ZIPs.
+      # Publish the actual 75 MB .apk directly so it cannot be mistaken for an APK.
+      - name: Publish direct-download test APK as a prerelease
+        if: github.event_name == 'push' && github.ref == 'refs/heads/feature/full-apk-touch-bridge'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="android/app/build/outputs/apk/touchplay/app-touchplay.apk"
+          TAG="touchplay-${GITHUB_SHA:0:12}"
+          gh release create "$TAG" "$APK#RB2-Android-Touchplay.apk" \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
+            --title "RB2-Android touchscreen test (${GITHUB_SHA:0:7})" \
+            --notes "Experimental Android APK with native RB2 runtime and GameHub touchscreen. Signed using CI debug key; separate app ID org.rb2recomp.android.touchplay. APK file is directly downloadable; no ZIP extraction required. On-device behavior is not yet verified. Bring your own Xbox 360 USA Rev 1 disc image (not PS3). If updating from an earlier touchplay CI APK, uninstall the previous test package first because the signing key changes between runners."
+          echo "### Direct APK download" >> "$GITHUB_STEP_SUMMARY"
+          echo "https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/RB2-Android-Touchplay.apk" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Summary
         if: always()
