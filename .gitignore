@@ -1,2 +1,33 @@
 generated/
 out/
+
+# Anything from a disc
+*.iso
+*.xex
+*.afs
+*.adx
+*.wmv
+*.dir
+nxeart
+/game/
+
+# Android build output and machine-local files
+/android/codegen/
+/android/native-build/
+/android/app/src/main/jniLibs/
+/android/.gradle/
+/android/app/build/
+/android/build/
+# Gradle wrapper is copied from SDL3's Android project by tools/android/build_apk.sh
+/android/gradlew
+/android/gradle/
+/android/local.properties
+# Bundled GPU driver (tools/android/fetch_turnip.sh)
+/android/app/src/main/assets/drivers/
+# Launcher art made from the owner's own disc (tools/android/make_launcher_art.py)
+/android/art-res/
+/desktop/build-win/
+/desktop/generated/
+/desktop/config/
+/desktop/game/generated
+/desktop/game/win_math_compat.cpp

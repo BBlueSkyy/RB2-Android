@@ -1,3 +1,6 @@
+> **Android port fork.** This fork adds an Android (arm64) build: see **[ANDROID.md](ANDROID.md)**.
+> No game data is included; you need your own legally obtained copy of the game.
+
 # rb2 - Dragon Ball Raging Blast 2 Recompiled
 
 Recompiled using the [ReXGlue SDK](https://github.com/rexglue/rexglue-sdk)
@@ -16,3 +19,7 @@ Recompiled using the [ReXGlue SDK](https://github.com/rexglue/rexglue-sdk)
 - [ReXGlue](https://github.com/rexglue/rexglue-sdk) for the recompilation tools.
 - [dlmalloc](https://gee.cs.oswego.edu/dl/html/malloc.html) for the heap allocator.
 - [REBlue](https://github.com/rexglue/reblue) for the dlmalloc setup.
+## Legal
+
+This repository contains no game data: no disc image, `default.xex`, extracted files or recompiled
+code. You need your own legally obtained copy of Dragon Ball: Raging Blast 2 for Xbox 360.
