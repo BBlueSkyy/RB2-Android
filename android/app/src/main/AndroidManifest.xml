@@ -41,6 +41,13 @@
             </intent-filter>
         </activity>
 
+        <!-- Visual/touch-input preview; never loads SDL or the game's native libraries. -->
+        <activity
+            android:name=".TouchPreviewActivity"
+            android:exported="false"
+            android:screenOrientation="sensorLandscape"
+            android:theme="@android:style/Theme.Material.NoActionBar.Fullscreen" />
+
         <!-- Own process: native libraries cannot be reloaded, so each session starts clean.
              configChanges as in SDL3's template: rotating or plugging in a pad must not recreate it. -->
         <activity

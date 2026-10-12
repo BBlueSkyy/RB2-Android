@@ -104,10 +104,23 @@ jobs:
             -I "$GITHUB_WORKSPACE/../rexglue-sdk-android/thirdparty/sdl3/include" \
             android/native/src/touch_input.cpp
 
+      - name: Assemble installable touch preview APK (no native game)
+        working-directory: android
+        run: ./gradlew --no-daemon --stacktrace :app:assembleDebug
+
+      - name: Upload touchscreen test APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: RB2-Touch-Preview-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Summarize build limits
         if: always()
         run: |
           echo '### Android touch compile' >> "$GITHUB_STEP_SUMMARY"
-          echo 'Checks Android Java sources and SDL3 virtual controller JNI against the pinned SDL revision.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Compiles Android Java and SDL3 virtual controller JNI; packages an installable touchscreen UI preview under a separate app ID.' >> "$GITHUB_STEP_SUMMARY"
           echo '' >> "$GITHUB_STEP_SUMMARY"
-          echo '**No playable APK:** a complete native RB2 build requires privately generated C++ from a legally obtained game executable and the patched ReXGlue runtime.' >> "$GITHUB_STEP_SUMMARY"
+          echo '**APK download:** Actions → run → Artifacts → RB2-Touch-Preview-APK (UI-only; test controls without ISO).' >> "$GITHUB_STEP_SUMMARY"
+          echo '**Not playable:** a complete native RB2 build requires privately generated C++ from a legally obtained Xbox 360 executable and the patched ReXGlue runtime.' >> "$GITHUB_STEP_SUMMARY"

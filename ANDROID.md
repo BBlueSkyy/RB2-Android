@@ -166,6 +166,12 @@ other phones:
 - **Fixes for other phones** (Exynos, MediaTek, Tensor, older Snapdragon...) are welcome as pull
   requests. Keep changes behind the existing launcher options / cvars where possible so other devices
   are not affected, and say which device you tested on.
+- **Test the controls without an ISO:** in the launcher tap **Test touch controls** to
+  open a full-screen preview of the exact same Android touch view used in-game, with
+  live button/stick/trigger readout and size/opacity options. The PR's GitHub Actions
+  publishes **RB2-Touch-Preview-APK**, a separate debug package
+  (`org.rb2recomp.android.touchpreview`) that does not contain native game code.
+  This APK tests Android layout and multitouch but cannot run a battle.
 - **Touch controls** in this fork use a GameHub-inspired translucent Xbox-style layout:
   dual sticks, D-pad, ABXY, triggers, bumpers, L3/R3, Back and Start. Swipe inward from
   either screen edge to open the in-game menu, where you can change touch controls
