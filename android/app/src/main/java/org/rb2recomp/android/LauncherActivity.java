@@ -84,10 +84,16 @@ public class LauncherActivity extends Activity {
         // tools/android/make_launcher_art.py) when the build has it, dimmed so the text stays readable.
         FrameLayout frame = new FrameLayout(this);
         frame.setBackgroundColor(Color.rgb(18, 18, 22));
-        int bg = getResources().getIdentifier("launcher_bg", "drawable", getPackageName());
+        // The player's own game art when it has been taken from their installed copy (files/art), else the
+        // build's art-res background (development builds only; public builds ship no game art).
+        java.io.File ownArt = NxeArt.backgroundFile(this);
+        int bgRes = getResources().getIdentifier("launcher_bg", "drawable", getPackageName());
+        android.graphics.Bitmap ownBitmap = ownArt.isFile()
+                ? android.graphics.BitmapFactory.decodeFile(ownArt.getPath()) : null;
+        int bg = ownBitmap != null ? 1 : bgRes;
         if (bg != 0) {
             ImageView art = new ImageView(this);
-            art.setImageResource(bg);
+            if (ownBitmap != null) art.setImageBitmap(ownBitmap); else art.setImageResource(bgRes);
             art.setScaleType(ImageView.ScaleType.CENTER_CROP);
             frame.addView(art, new FrameLayout.LayoutParams(
                     FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
@@ -192,6 +198,7 @@ public class LauncherActivity extends Activity {
         (gameInstalled() ? playButton : installButton).requestFocus();
         refresh();
         runProbe();
+        extractArt(false);
         if (UpdateChecker.enabled(this) && UpdateChecker.autoCheckDue(this)) {
             checkForUpdates(false);
         }
@@ -263,6 +270,15 @@ public class LauncherActivity extends Activity {
         }, "driver-import").start();
     }
 
+    /** Launcher background from the installed game's dashboard art (NxeArt); recreates the screen once found. */
+    private void extractArt(boolean fresh) {
+        if (fresh) NxeArt.clear(this);
+        if (NxeArt.backgroundFile(this).isFile() || !gameInstalled()) return;
+        new Thread(() -> {
+            if (NxeArt.ensureBackground(this)) runOnUiThread(this::recreate);
+        }, "nxeart").start();
+    }
+
     private void pickIso() {
         if (installing) return;
         Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
@@ -317,6 +333,7 @@ public class LauncherActivity extends Activity {
                 installButton.setEnabled(true);
                 getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
                 installStatus.setText(success ? msg + " Press Play." : "Not installed: " + msg);
+                if (success) extractArt(true);
                 updateInstallLabels();
                 refresh();
                 (success ? playButton : installButton).requestFocus();

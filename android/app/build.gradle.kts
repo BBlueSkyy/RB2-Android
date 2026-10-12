@@ -33,7 +33,7 @@ android {
         // In-app update checks read this update.json; empty (the default) = no checks (dev builds).
         resValue("string", "update_manifest_url", (findProperty("app.updateUrl") as String?) ?: "")
         manifestPlaceholders["appIcon"] =
-            if (hasArt) "@mipmap/ic_launcher" else "@android:drawable/sym_def_app_icon"
+            if (hasArt) "@mipmap/ic_launcher" else "@mipmap/ic_launcher_port"
     }
 
     val releaseStore = System.getenv("RELEASE_STORE_FILE")
