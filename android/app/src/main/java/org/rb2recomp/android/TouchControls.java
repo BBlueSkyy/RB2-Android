@@ -5,6 +5,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.RectF;
+import android.graphics.Typeface;
 import android.util.SparseArray;
 import android.view.MotionEvent;
 import android.view.View;
@@ -53,6 +54,7 @@ final class TouchControls extends View {
 
     private final Listener listener;
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private static final Typeface LABEL_FACE = Typeface.create(Typeface.DEFAULT, Typeface.BOLD);
     private final ArrayList<Control> controls = new ArrayList<>();
     private final SparseArray<Finger> fingers = new SparseArray<>();
     private int pressed;
@@ -257,8 +259,7 @@ final class TouchControls extends View {
                        int color, int opacity) {
         fill(color, opacity);
         paint.setTextAlign(Paint.Align.CENTER);
-        paint.setTypeface(android.graphics.Typeface.create(
-                android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD));
+        paint.setTypeface(LABEL_FACE);
         paint.setTextSize(textSize);
         canvas.drawText(label, x, y - (paint.ascent() + paint.descent()) / 2f, paint);
     }
