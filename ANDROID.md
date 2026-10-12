@@ -9,7 +9,9 @@ Adreno, SDL3 input, in-game menu, frame pacing).
 Status (AYN Thor): boots, menus and battles run at 60 fps; music and voices play. Known issue: the
 music comes out in mono. Details and measurements: [`PROGRESS.md`](PROGRESS.md).
 
-Supported disc: **USA, Rev 1** (title ID 4E4D0826). Your extracted `default.xex` should be
+Supported disc: **Xbox 360, USA, Rev 1** - the later printing, sometimes listed as **v1.1** (title ID
+4E4D0826). Not supported: the original USA release (v1.0), other regions, and the PlayStation 3 version.
+The app checks your image and tells you if it is one of those. Your extracted `default.xex` should be
 7,151,616 bytes with SHA-1 `F57B501FA2CDD309C2C56B76A5F297ACBC564FD2`. A complete extraction holds
 `default.xex`, `nxeart`, and in `data/X360/` six `st_pack_*_pt_x360.afs` packs, `st_pack_x360.dir`
 and `movie/*.wmv`. If the game shows about five seconds of black and then quits, your dump is
@@ -20,7 +22,7 @@ incomplete: check that no file is truncated.
 You do not need a computer.
 
 1. **[Download the APK](https://github.com/moddedrounds/RB2-Android/releases/latest/download/RB2-Android.apk)** and install it (allow installing from your browser / file manager).
-2. Make a disc image (`.iso`) from **your own** Dragon Ball: Raging Blast 2 Xbox 360 disc (USA, Rev 1) and put it on
+2. Make a disc image (`.iso`) from **your own** Dragon Ball: Raging Blast 2 Xbox 360 disc (USA, Rev 1 / v1.1) and put it on
    the device.
 3. Open the app and tap **Select my Raging Blast 2 ISO**. Pick your `.iso`. The app extracts it to its
    own storage and checks it: the game executable must be the supported release, and an incomplete
