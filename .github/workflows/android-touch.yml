@@ -1,0 +1,87 @@
+name: Android touch controls compile
+
+on:
+  push:
+    branches:
+      - feature/touchscreen-gamepad
+    paths:
+      - '.github/workflows/android-touch.yml'
+      - 'android/app/**'
+      - 'android/native/src/touch_input.*'
+      - 'android/build.gradle.kts'
+      - 'android/settings.gradle.kts'
+  pull_request:
+    branches:
+      - android
+    paths:
+      - '.github/workflows/android-touch.yml'
+      - 'android/app/**'
+      - 'android/native/src/touch_input.*'
+      - 'android/build.gradle.kts'
+      - 'android/settings.gradle.kts'
+
+permissions:
+  contents: read
+
+jobs:
+  touch-compile:
+    name: Java UI + Android NDK touch input
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout RB2 Android
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 35 and NDK 28
+        run: |
+          sdkmanager --install "platforms;android-35" "build-tools;35.0.0" "ndk;28.2.13676358"
+
+      # The game itself must be code-generated from a user's own disc. This public CI job
+      # deliberately compiles only the Android Java sources and virtual controller JNI source,
+      # rather than producing an unusable APK with no libmain.so.
+      - name: Fetch the SDL3 revision pinned by ReXGlue v0.10.0
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDL="$GITHUB_WORKSPACE/../rexglue-sdk-android/thirdparty/sdl3"
+          mkdir -p "$SDL"
+          git -C "$SDL" init
+          git -C "$SDL" remote add origin https://github.com/libsdl-org/SDL.git
+          git -C "$SDL" fetch --depth=1 origin 8bf3b7215ad9fc3deb583c6a3a37c6c67f2e24e4
+          git -C "$SDL" checkout --detach FETCH_HEAD
+          cp "$SDL/android-project/gradlew" android/gradlew
+          chmod +x android/gradlew
+          mkdir -p android/gradle/wrapper
+          cp "$SDL/android-project/gradle/wrapper/gradle-wrapper.jar" android/gradle/wrapper/
+          cp "$SDL/android-project/gradle/wrapper/gradle-wrapper.properties" android/gradle/wrapper/
+
+      - name: Compile Android UI Java
+        working-directory: android
+        run: ./gradlew --no-daemon --stacktrace :app:compileReleaseJavaWithJavac
+
+      - name: Compile virtual controller JNI (syntax)
+        shell: bash
+        run: |
+          set -euo pipefail
+          NDK="${ANDROID_HOME}/ndk/28.2.13676358"
+          CLANG="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android29-clang++"
+          "$CLANG" -std=c++23 -fsyntax-only -Wall -Wextra -Werror \
+            -I "$GITHUB_WORKSPACE/../rexglue-sdk-android/thirdparty/sdl3/include" \
+            android/native/src/touch_input.cpp
+
+      - name: Summarize build limits
+        if: always()
+        run: |
+          echo '### Android touch compile' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Checks Android Java sources and SDL3 virtual controller JNI against the pinned SDL revision.' >> "$GITHUB_STEP_SUMMARY"
+          echo '' >> "$GITHUB_STEP_SUMMARY"
+          echo '**No playable APK:** a complete native RB2 build requires privately generated C++ from a legally obtained game executable and the patched ReXGlue runtime.' >> "$GITHUB_STEP_SUMMARY"
