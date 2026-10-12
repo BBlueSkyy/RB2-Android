@@ -50,9 +50,17 @@ REX_HOOK_RAW(sub_82469150) {
   }
 }
 
+#if defined(__ANDROID__)
+// android/native/src/android_main.cpp: blocks while the app is in the background.
+extern "C" void rex_wait_while_in_background();
+#endif
+
 // SpGameServer::_vsyncWait
 REX_HOOK_RAW(sub_8249B680) {
   REX_FUNC_PROLOGUE();
+#if defined(__ANDROID__)
+  rex_wait_while_in_background();
+#endif
   if (!REXCVAR_GET(rb2_vsync_timer)) {
     __imp__sub_8249B680(ctx, base);
     return;
