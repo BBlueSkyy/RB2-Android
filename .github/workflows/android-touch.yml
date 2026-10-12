@@ -38,11 +38,16 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
+      # ubuntu-24.04 already provides the Android command-line SDK tools. The
+      # setup-android@v3 action tries to install the removed legacy "tools"
+      # package and fails before running sdkmanager for the actual dependencies.
       - name: Install Android 35 and NDK 28
+        shell: bash
         run: |
+          set -euo pipefail
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          command -v sdkmanager
+          sdkmanager --version
           sdkmanager --install "platforms;android-35" "build-tools;35.0.0" "ndk;28.2.13676358"
 
       # The game itself must be code-generated from a user's own disc. This public CI job
