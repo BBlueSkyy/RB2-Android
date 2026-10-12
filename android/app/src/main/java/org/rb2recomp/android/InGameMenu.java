@@ -46,7 +46,8 @@ final class InGameMenu {
     private final boolean startMsaa;    // ... and its anti-aliasing
     private final FrameLayout overlay;  // full screen: dims the game, closes on a tap outside
     private final LinearLayout panel;
-    private final LinearLayout fpsRow, fgRow, upscalerRow, scaleRow, aaRow, touchRow;
+    private final LinearLayout fpsRow, fgRow, upscalerRow, scaleRow, aaRow;
+    private final LinearLayout touchRow, touchOpacityRow, touchSizeRow;
     private final TextView fgNote, scaleNote;
     private final Button restartButton;
     private boolean open;
@@ -84,6 +85,8 @@ final class InGameMenu {
         panel.addView(fgNote);
         upscalerRow = row("FSR upscaling");
         touchRow = row("Touch controls");
+        touchOpacityRow = row("Touch opacity");
+        touchSizeRow = row("Touch size");
         scaleRow = row("Resolution");
         aaRow = row("Anti-aliasing");
         aaRow.setVisibility(View.GONE);  // the game's own 2x MSAA; forcing 1x breaks its surfaces
@@ -201,6 +204,13 @@ final class InGameMenu {
         refresh();
     }
 
+    private void setTouchStyle(String key, int value) {
+        activity.getSharedPreferences("touch_controls", Activity.MODE_PRIVATE)
+                .edit().putInt(key, value).apply();
+        nativeSide.touchControlsChanged(true);
+        refresh();
+    }
+
     private void setMsaa(boolean on) {
         LaunchConfig.setMsaa(activity, on);
         refresh();
@@ -241,6 +251,16 @@ final class InGameMenu {
                 .getBoolean("enabled", true);
         fill(touchRow, new String[] {"On", "Off"}, touch ? 0 : 1,
                 i -> setTouchControls(i == 0));
+        int opacity = activity.getSharedPreferences("touch_controls", Activity.MODE_PRIVATE)
+                .getInt("opacity", 75);
+        int size = activity.getSharedPreferences("touch_controls", Activity.MODE_PRIVATE)
+                .getInt("size", 100);
+        int[] opacities = {40, 60, 75, 100};
+        int[] sizes = {75, 100, 125};
+        fill(touchOpacityRow, labels(opacities), indexOf(opacities, opacity),
+                i -> setTouchStyle("opacity", opacities[i]));
+        fill(touchSizeRow, labels(sizes), indexOf(sizes, size),
+                i -> setTouchStyle("size", sizes[i]));
         final int[] scales = LaunchConfig.RENDER_SCALES;
         fill(scaleRow, labels(scales), indexOf(scales, scale), i -> setScale(scales[i]));
         boolean msaa = LaunchConfig.msaa(activity);
