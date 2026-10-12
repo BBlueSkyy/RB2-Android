@@ -3,6 +3,7 @@
 #include "touch_input.h"
 
 #include <SDL3/SDL_gamepad.h>
+#include <SDL3/SDL_init.h>
 #include <SDL3/SDL_joystick.h>
 #include <android/log.h>
 #include <jni.h>
