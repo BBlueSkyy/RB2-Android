@@ -2,6 +2,7 @@
 // SDL's existing input driver consumes this through normal GAMEPAD_ADDED/AXIS/BUTTON events.
 #include "touch_input.h"
 
+#include <SDL3/SDL_error.h>
 #include <SDL3/SDL_gamepad.h>
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_joystick.h>
