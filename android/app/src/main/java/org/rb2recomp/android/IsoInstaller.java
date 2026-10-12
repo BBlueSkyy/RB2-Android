@@ -185,8 +185,14 @@ final class IsoInstaller {
         }
         if (!ok) {
             deleteTree(tmp);
-            throw new Failure("This disc is not the supported release of the game.\n"
-                    + "default.xex SHA-256: " + xexSha);
+            // The original USA release (v1.0); dumps are usually named "(USA)", Rev 1 "(USA) (Rev 1)".
+            boolean original = xexSha.toLowerCase(java.util.Locale.US).startsWith("a7008a47c69d5620");
+            throw new Failure((original
+                    ? "This is the original USA release (v1.0) of Raging Blast 2. This port supports only the "
+                      + "later USA \"Rev 1\" disc for now."
+                    : "This disc is a version of the game this port does not support (it needs the USA \"Rev 1\" "
+                      + "disc).")
+                    + "\nYour current install was not changed.\n(default.xex SHA-256: " + xexSha + ")");
         }
 
         // Swap by renaming, so a failure never leaves the device without a working install (an older
