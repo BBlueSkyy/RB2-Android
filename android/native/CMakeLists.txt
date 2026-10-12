@@ -91,6 +91,7 @@ add_library(main SHARED
     src/thread_affinity.cpp
     src/display_vsync.cpp
     src/live_settings.cpp
+    src/touch_input.cpp
     src/custom_driver.cpp
     "${THPS_SDK}/src/ui/rex_app.cpp"
     $<TARGET_OBJECTS:rb2_recomp_objs>)
