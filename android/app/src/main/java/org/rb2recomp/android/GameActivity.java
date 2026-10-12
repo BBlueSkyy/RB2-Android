@@ -212,6 +212,7 @@ public class GameActivity extends SDLActivity {
 
     private void updateTouchAvailability() {
         if (touchControls == null) return;
+        touchControls.updateStyle();
         boolean physicalPad = false;
         for (int id : InputDevice.getDeviceIds()) {
             InputDevice d = InputDevice.getDevice(id);
